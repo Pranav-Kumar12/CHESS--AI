@@ -39,6 +39,8 @@ def main():
   # Now we will use Chess_engine to grab game state object.
   gs = Chess_engine.GameState() # Now we have access to three variables of game state by gs.board, gs.whiteToMove and gs.moveLog
   # print(gs.board) # don't have to do board() as it is not a method/function but a variable
+  validMoves= gs.getValidMoves()
+  moveMade=False # flag variable. We don't want to call valid moves each time as it is expensive so we will have this variable to hold the valid moves until no valid move is played by the player. valid moves is obtained when a game state is obtained. 
   loadImages() # only once, before while loop
   running= True
   sqSelected=() # We are making a tuple (row, col). 
@@ -48,6 +50,7 @@ def main():
     for e in p.event.get():
       if e.type == p.QUIT: #whenever current event is being quitted
         running = False
+    # These are related to mouse movements and clicks
       elif e.type == p.MOUSEBUTTONDOWN:
         location= p.mouse.get_pos() #(x,y) of mouse
         col= location[0]//SQ_SIZE # x coordinate responsible for it
@@ -61,10 +64,24 @@ def main():
         if len(playerClick)==2:
           # now we will implement everything in move class so that we can store it and back it. Write in notations etc.
           move= Chess_engine.Move(playerClick[0],playerClick[1], gs.board)
+          # Now check whether move is in validMove or not and then move.
           print(move.getChessNotation())
-          gs.makeMove(move)
+          if move in validMoves:
+            gs.makeMove(move)
+            moveMade=True
           sqSelected=()
-          playerClick=[]
+          playerClick=[]    
+    # These are related to key presses.
+      elif e.type == p.KEYDOWN:
+        if e.key == p.K_z: # undo move. Key presses are represented like these K_key
+            gs.undo_move()
+            # on undoing a move, we should also get valid moves now.
+            moveMade=True
+        # We do not have to switch turns here as it is already handled in undo_move function.
+        # Later on can add that whenever we undo then it saves the move so that again algorithm is not needed to calculate the move that it already played in past.
+    if (moveMade):
+      validMoves = gs.getValidMoves()
+      moveMade=False
 
     drawGameState(screen, gs)
     clock.tick(MAX_FPS)
