@@ -79,9 +79,9 @@ def main():
             moveMade=True
         # We do not have to switch turns here as it is already handled in undo_move function.
         # Later on can add that whenever we undo then it saves the move so that again algorithm is not needed to calculate the move that it already played in past.
-    if (moveMade):
-      validMoves = gs.getValidMoves()
-      moveMade=False
+      if (moveMade):
+        validMoves = gs.getValidMoves()
+        moveMade=False
 
     drawGameState(screen, gs)
     clock.tick(MAX_FPS)
