@@ -9,39 +9,120 @@ class GameState():
         # The first character represents colour b/w and second means the type of piece- KQRBNp
         #"--" means an empty space
         self.board=[
-            ["bR","bN","bB","bQ","bK","bB","bN","bR"],
-            ["bp","bp","bp","bp","bp","bp","bp","bp"],
-            ["--","--","--","--","--","--","--","--"], 
+            # ["bR","bN","bB","bQ","bK","bB","bN","bR"],
+            # ["bp","bp","bp","bp","bp","bp","bp","bp"],
+            # ["--","--","--","--","--","--","--","--"], 
+            # ["--","--","--","--","--","--","--","--"],
+            # ["--","--","--","--","--","--","--","--"],
+            # ["--","--","--","--","--","--","--","--"],
+            # ["wp","wp","wp","wp","wp","wp","wp","wp"],
+            # ["wR","wN","wB","wQ","wK","wB","wN","wR"]
+            ["bK","--","--","--","--","--","--","--"],
+            ["--","--","--","--","--","--","wQ","--"],
+            ["--","wK","--","--","--","--","--","--"], 
             ["--","--","--","--","--","--","--","--"],
             ["--","--","--","--","--","--","--","--"],
             ["--","--","--","--","--","--","--","--"],
-            ["wp","wp","wp","wp","wp","wp","wp","wp"],
-            ["wR","wN","wB","wQ","wK","wB","wN","wR"]
+            ["--","--","--","--","--","--","--","--"],
+            ["--","--","--","--","--","--","--","--"]
         ] 
         self.whiteToMove=True
         self.moveLog= []
+        self.whiteKingLocation = (7,4)
+        self.blackKingLocation = (0,4) # These are stored for castling benefits checking and in general validating moves.
         # have to make sure that moving king and rook is registered for castling rights
+        self.checkMate= False
+        self.staleMate=False
+
+
     # Creating a function in chess engine now to finally make a move.
     """ This will take move as parameter and executes it ( except for castling and en-passant and pawn promotion) """
     def makeMove(self,move):
         self.board[move.startRow][move.startCol]="--"
         self.board[move.endRow][move.endCol]=move.pieceMoved
+        # if it is king then update its location
+        if move.pieceMoved[1] == "K":
+            if move.pieceMoved[0]=='w':
+                self.whiteKingLocation = (move.endRow,move.endCol)
+            else:
+                self.blackKingLocation = (move.endRow, move.endCol)
         # As of now assuming that move is valid- later on will checek and then play the move
         self.moveLog.append(move) # for pgn or undo 
         self.whiteToMove= not self.whiteToMove # change turns
+
     """ Undo the latest move"""
     def undo_move(self):
         if len(self.moveLog)!=0: # making sure that a move does exist
             move= self.moveLog.pop() # In python pop does return 
             self.board[move.startRow][move.startCol]=move.pieceMoved
             self.board[move.endRow][move.endCol]=move.pieceCaptured
+            # king's coordinates
+            if(move.pieceMoved == "wK" or move.pieceMoved=='bK'):
+                if(move.pieceMoved == 'wK'):
+                    self.whiteKingLocation= (move.startRow, move.startCol)
+                else:
+                    self.blackKingLocation = (move.startRow, move.startCol)
             self.whiteToMove = not self.whiteToMove # change turns back
     """
     Now we have to make sure that we are doing valid moves. All possible moves and valid moves are different. We can play a possible move but it may be invalid as it causes us to be in check or if we already in check then all possible moves are not valid that do not take care of check.
     """
     def getValidMoves(self):
-        return self.getPossibleMoves() # not caring for checks as of now
+        # Naive solution- Very trivial way of dealing with it.
+        # 1) All possible moves
+        moves= self.getPossibleMoves()
+        # 2) For each move, make a move (generally have to traverse the list in backward direction when we have to deal with erasing of elements as indexes are concerned)
+        for i in range(len(moves)-1,-1,-1):
+            self.makeMove(moves[i])
+            # 3) generate all possible moves
+            # 4)for each of your opponent moves, see if they attack your king
+            self.whiteToMove= not self.whiteToMove # Now after we make the move above then it automatically swaps the moves, but we want to see for isInCheck for same colour complex so doing this again of swapping colours
+            if self.isInCheck():
+                # have to remove this move as it creates check on our king
+                moves.remove(moves[i]) #5)
+            # Now we have to switch the players back and undo the move back that we used to check earlier
+            self.whiteToMove= not self.whiteToMove # We gave the move to black with one makeMove done before in this loop so that we can undo it and control regained by white.
+            self.undo_move()
+        # check here whether valid moves are achievable or not 
+        if len(moves)==0:
+            #checkmate or stalemate
+            if(self.isInCheck()):
+                self.checkMate=True
+            else:
+                self.staleMate=True
+        else:
+            # when we are undoing a checkmate or stalemate
+            self.checkMate= False
+            self.staleMate = False
+        return moves 
     
+    """
+    Find if the current player is in check
+    """
+    def isInCheck(self):
+            # Returning whether king coordinates is under attack
+        if self.whiteToMove:
+            return self.squareUnderAttack(self.whiteKingLocation[0], self.whiteKingLocation[1])
+        else:
+            return self.squareUnderAttack(self.blackKingLocation[0],self.blackKingLocation[1])
+        
+
+    """
+    Determine if the enemy can attack square r,c
+    """
+    def squareUnderAttack(self,r,c):
+        # I am going to change looking at situation 
+        self.whiteToMove= not self.whiteToMove # from his perspective
+        oppMoves= self.getPossibleMoves()
+        self.whiteToMove= not self.whiteToMove # switch moves back. We switched to get all moves for opponent
+        # Now if the opponent moves attack r,c then found
+        for move in oppMoves:
+            if move.endRow==r and move.endCol==c:
+                return True
+        return False
+
+    """
+    All Moves without considering checks
+    """
     def getPossibleMoves(self):
         # there is a lot of things here. Traversal across the baord and check if it is having the same colour as the one with move. Then we geenrate all possible moves.
         # moves=[Move((6,6),(4,6),self.board)] # for manual testing- when only this provided then it allows only this move nothing else.
@@ -86,7 +167,7 @@ class GameState():
                 moves.append(Move((r,c),(r+1,c-1),self.board))
             if c<len(self.board)-1 and self.board[r+1][c+1][0]=="w":    # capturing right enemy piece 
                 moves.append(Move((r,c),(r+1,c+1),self.board))
-
+        # pawn promotions later
     """Get all the rook moves for the pawn at row=w and column=c and add in list of moves"""
     def getRookMoves(self,r,c,moves):
         # Tried to make code uniform so that the same can be applied to others by changing directions
@@ -214,53 +295,9 @@ class GameState():
     """Get all the queen moves for the pawn at row=w and column=c and add in list of moves"""
     def getQueenMoves(self,r,c,moves):
         #similar to rook with different direction array
-        directions=[[1,1],[-1,1],[1,-1],[-1,-1],[1,0],[-1,0],[0,1],[0,-1]] # diagonals and straight
-        if self.whiteToMove:    #for white
-            origRow=r
-            origCol=c
-            for direction in directions:
-                while(True):
-                    r= r+direction[0]
-                    c= c+direction[1]
-                    if(r>=0 and r<8 and c>=0 and c<8):
-                        if(self.board[r][c][0]=='w'): # same army
-                            r=origRow
-                            c=origCol
-                            break
-                        elif self.board[r][c][0]=='b': #capture
-                            moves.append(Move((origRow,origCol),(r,c),self.board))
-                            r=origRow
-                            c=origCol
-                            break
-                        else: # empty square
-                            moves.append(Move((origRow,origCol),(r,c),self.board))
-                    else:
-                        r=origRow
-                        c=origCol
-                        break      
-        else:   #for black
-            origRow=r
-            origCol=c
-            for direction in directions:
-                while(True):
-                    r= r+direction[0]
-                    c= c+direction[1]
-                    if(r>=0 and r<8 and c>=0 and c<8):
-                        if(self.board[r][c][0]=='b'): # same army
-                            r=origRow
-                            c=origCol
-                            break
-                        elif self.board[r][c][0]=='w': #capture
-                            moves.append(Move((origRow,origCol),(r,c),self.board))
-                            r=origRow
-                            c=origCol
-                            break
-                        else: # empty square
-                            moves.append(Move((origRow,origCol),(r,c),self.board))
-                    else:
-                        r=origRow
-                        c=origCol
-                        break
+        # shorter is to actually use rook and bishop functions
+        self.getBishopMoves(r,c,moves)
+        self.getRookMoves(r,c,moves)
 
     """Get all the king moves for the pawn at row=w and column=c and add in list of moves"""
     def getKingMoves(self,r,c,moves):

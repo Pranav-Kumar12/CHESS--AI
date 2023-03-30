@@ -3,7 +3,7 @@ This is going to be our main driver file where it is responsible for handling us
 """
 import pygame as p
 import Chess_engine
-
+import time
 # p.init() # It can be initialized here too. Doesn't matter here.
 WIDTH = HEIGHT = 512  # 400 is another good option
 DIMENSION = 8 # chess board is 8X8
@@ -46,7 +46,11 @@ def main():
   sqSelected=() # We are making a tuple (row, col). 
   # empty initially- stores last click
   playerClick=[] # keeps track of players clicks (two tuples-> (6,4),(4,4))
+  ok=True
   while running:
+    if(not ok):
+      time.sleep(5)
+      break
     for e in p.event.get():
       if e.type == p.QUIT: #whenever current event is being quitted
         running = False
@@ -69,8 +73,10 @@ def main():
           if move in validMoves:
             gs.makeMove(move)
             moveMade=True
-          sqSelected=()
-          playerClick=[]    
+            sqSelected=()
+            playerClick=[] 
+          else:
+            playerClick=[sqSelected]   
     # These are related to key presses.
       elif e.type == p.KEYDOWN:
         if e.key == p.K_z: # undo move. Key presses are represented like these K_key
@@ -82,7 +88,19 @@ def main():
       if (moveMade):
         validMoves = gs.getValidMoves()
         moveMade=False
-
+      if (gs.checkMate):
+        ok=False
+        print("Checkmate")
+        if(gs.whiteToMove):
+          print("Black Won")
+        else:
+          print("White won")
+        break
+      elif gs.staleMate:
+        ok=False
+        print("Stalemate.Draw")
+        break
+        
     drawGameState(screen, gs)
     clock.tick(MAX_FPS)
     p.display.flip()
